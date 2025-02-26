@@ -13,12 +13,12 @@ final class ConversationsViewTests: XCTestCase {
     func testFetchText_Success() {
         let mockText = "Hello, this is a test transcript."
         let mockURLSession = MockURLSession(data: mockText.data(using: .utf8), response: nil, error: nil)
-        let viewModel = ConversationsViewModel(urlSession: mockURLSession)
-        
-        viewModel.fetch(
-            textURL: URL(string: "https://example.com/transcription.txt")!,
-            audioURL: URL(string: "https://example.com/audio.mp3")!
+        let viewModel = ConversationsViewModel(
+            voiceOption: VoiceOption(voiceId: 1, sampleId: 1, name: "Stone"), 
+            urlSession: mockURLSession
         )
+        
+        viewModel.fetch()
         
         // Wait for async operation
         let expectation = XCTestExpectation(description: "Fetch text")
@@ -33,12 +33,12 @@ final class ConversationsViewTests: XCTestCase {
     func testFetchText_Failure() {
         let mockError = NSError(domain: "TestError", code: 1, userInfo: nil)
         let mockURLSession = MockURLSession(data: nil, response: nil, error: mockError)
-        let viewModel = ConversationsViewModel(urlSession: mockURLSession)
-        
-        viewModel.fetch(
-            textURL: URL(string: "https://example.com/transcription.txt")!,
-            audioURL: URL(string: "https://example.com/audio.mp3")!
+        let viewModel = ConversationsViewModel(
+            voiceOption: VoiceOption(voiceId: 1, sampleId: 1, name: "Stone"),
+            urlSession: mockURLSession
         )
+        
+        viewModel.fetch()
         
         let expectation = XCTestExpectation(description: "Fetch text")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

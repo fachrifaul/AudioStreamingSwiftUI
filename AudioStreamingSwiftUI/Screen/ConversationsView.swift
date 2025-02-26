@@ -14,19 +14,21 @@ class ConversationsViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     private var urlSession: URLSessionProtocol
     private var player: AVPlayer?
+    let voiceOption: VoiceOption
     
-    init(urlSession: URLSessionProtocol = URLSession.shared) {
+    init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
+        self.voiceOption = voiceOption
         self.urlSession = urlSession
     }
     
-    func fetch(textURL: URL, audioURL: URL) {
-        urlSession.dataTask(with: textURL) { data, response, error in
+    func fetch() {
+        urlSession.dataTask(with: URL(string: voiceOption.transcriptionUrlString)!) { data, response, error in
             DispatchQueue.main.async {
                 if let error = error {
                     self.errorMessage = "Failed to load text: \(error.localizedDescription)"
                 } else if let data = data, let fetchedText = String(data: data, encoding: .utf8) {
                     self.text = fetchedText
-                    self.startAudio(url: audioURL)
+                    self.startAudio(url: URL(string: self.voiceOption.soundUrlString)!)
                 } else {
                     self.errorMessage = "Failed to decode text."
                 }
@@ -46,19 +48,11 @@ class ConversationsViewModel: ObservableObject {
 }
 
 struct ConversationsView: View {
-    let id: Int
-    let sampleId: Int
-    private var audioURL: URL {
-        URL(string: "https://static.dailyfriend.ai/conversations/samples/\(id)/\(sampleId)/audio.mp3")!
-    }
-    private var textURL: URL {
-        URL(string: "https://static.dailyfriend.ai/conversations/samples/\(id)/\(sampleId)/transcription.txt")!
-    }
+    let voiceOption: VoiceOption
     
-    init(id: Int, urlSession: URLSessionProtocol = URLSession.shared) {
-        _viewModel = StateObject(wrappedValue: ConversationsViewModel(urlSession: urlSession))
-        self.id = id
-        self.sampleId = Int.random(in: 2...20)
+    init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
+        _viewModel = StateObject(wrappedValue: ConversationsViewModel(voiceOption: voiceOption, urlSession: urlSession))
+        self.voiceOption = voiceOption
     }
     
     @StateObject private var viewModel: ConversationsViewModel
@@ -106,10 +100,16 @@ struct ConversationsView: View {
     }
     
     private func fetch() {
-        viewModel.fetch(textURL: textURL, audioURL: audioURL)
+        viewModel.fetch()
     }
 }
 
 #Preview {
-    ConversationsView(id: 1)
+    ConversationsView(
+        voiceOption: VoiceOption(
+            voiceId: 1, 
+            sampleId: 1,
+            name: "Stone"
+        )
+    )
 }

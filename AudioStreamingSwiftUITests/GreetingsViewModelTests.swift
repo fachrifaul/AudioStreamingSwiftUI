@@ -19,7 +19,7 @@ final class GreetingsViewModelTests: XCTestCase {
     }
 
     func testSelectVoice_updatesSelectedVoice() {
-        let voice = VoiceOption(voiceId: 1, name: "Meadow")
+        let voice = VoiceOption(voiceId: 1, sampleId: 1, name: "Meadow")
         
         viewModel.selectVoice(voice)
         

@@ -12,12 +12,12 @@ import SwiftUI
 
 class GreetingsViewModel: ObservableObject {
     let voices = [
-        VoiceOption(voiceId: 1, name: "Meadow"),
-        VoiceOption(voiceId: 2, name: "Cypress"),
-        VoiceOption(voiceId: 3, name: "Iris"),
-        VoiceOption(voiceId: 4, name: "Hawke"),
-        VoiceOption(voiceId: 5, name: "Seren"),
-        VoiceOption(voiceId: 6, name: "Stone")
+        VoiceOption(voiceId: 1, sampleId: 1, name: "Meadow"),
+        VoiceOption(voiceId: 2, sampleId: 1, name: "Cypress"),
+        VoiceOption(voiceId: 3, sampleId: 1, name: "Iris"),
+        VoiceOption(voiceId: 4, sampleId: 1, name: "Hawke"),
+        VoiceOption(voiceId: 5, sampleId: 1, name: "Seren"),
+        VoiceOption(voiceId: 6, sampleId: 1, name: "Stone")
     ]
     
     @Published var selectedVoice: VoiceOption?
@@ -87,14 +87,22 @@ struct GreetingsView: View {
                     }
                 }
                 
-                NavigationLink(destination: ConversationsView(id: viewModel.selectedVoice?.voiceId ?? 1)) {
+                NavigationLink(
+                    destination: {
+                        if let selectedVoice = viewModel.selectedVoice {
+                            ConversationsView(voiceOption: selectedVoice)
+                        } else {
+                            EmptyView()
+                        }
+                    }
+                ) {
                     Text("Next")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.orange)
+                        .background(viewModel.selectedVoice == nil ? Color.gray.opacity(0.5) : Color.orange)
                         .foregroundColor(.white)
                         .cornerRadius(12)
-                }
+                }.disabled(viewModel.selectedVoice == nil)
             }
             .padding()
             .onDisappear {

@@ -10,6 +10,7 @@ import Foundation
 struct VoiceOption: Identifiable {
     let id = UUID()
     let voiceId: Int
+    let sampleId: Int
     let name: String
     
     var imageUrlString: String {
@@ -17,10 +18,10 @@ struct VoiceOption: Identifiable {
     }
     
     var soundUrlString: String {
-        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(voiceId)/audio.mp3"
+        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
     }
     
     var transcriptionUrlString: String {
-        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(voiceId)/transcription.text"
+        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/transcription.text"
     }
 }
