@@ -30,7 +30,7 @@ class ConversationsViewModel: ObservableObject {
         switch result {
         case .success(let text):
             self.text = text
-            self.startAudio(urlString: self.voiceOption.soundUrlString)
+            self.startAudio(urlString: API.soundUrlString(voiceId: voiceOption.voiceId, sampleId: randomSampleId))
         case .failure(let error):
             self.errorMessage = error.localizedDescription
         }
@@ -45,7 +45,7 @@ class ConversationsViewModel: ObservableObject {
     }
 }
 
-struct ConversationsView: View {
+struct ConversationsPage: View {
     let voiceOption: VoiceOption
     
     init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
@@ -105,7 +105,7 @@ struct ConversationsView: View {
 }
 
 #Preview {
-    ConversationsView(
+    ConversationsPage(
         voiceOption: VoiceOption(
             voiceId: 1, 
             sampleId: 1,

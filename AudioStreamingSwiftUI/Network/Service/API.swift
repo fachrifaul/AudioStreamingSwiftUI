@@ -20,6 +20,10 @@ class API {
     private let authEndpoint = URL(string: "https://static.dailyfriend.ai/api/auth")!
     private let voicesEndpoint = URL(string: "https://static.dailyfriend.ai/api/greetings")!
     
+    static func soundUrlString(voiceId: Int, sampleId: Int) ->  String {
+        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
+    }
+    
     private var urlSession: URLSessionProtocol
     
     init(urlSession: URLSessionProtocol = URLSession.shared) {

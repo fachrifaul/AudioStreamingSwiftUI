@@ -68,7 +68,7 @@ class GreetingsViewModel: ObservableObject {
     }
 }
 
-struct GreetingsView: View {
+struct GreetingsPage: View {
     @StateObject private var viewModel = GreetingsViewModel()
     @State private var playbackMode: LottiePlaybackMode =
         .playing(.fromProgress(0, toProgress: 1, loopMode: .playOnce))
@@ -115,8 +115,8 @@ struct GreetingsView: View {
                         ],
                         spacing: 16
                     ) {
-                        ForEach(viewModel.voices) { voice in
-                            VoiceButtonView(voice: voice, selectedVoice: $viewModel.selectedVoice) {
+                        ForEach(Array(viewModel.voices.enumerated()), id: \.element.id) { index, voice in
+                            VoiceButtonView(index: index, voice: voice, selectedVoice: $viewModel.selectedVoice) {
                                 viewModel.selectVoice(voice)
                                 playbackMode = .playing(.fromProgress(0, toProgress: 1, loopMode: .playOnce))
                             }
@@ -127,7 +127,7 @@ struct GreetingsView: View {
                     NavigationLink(
                         destination: {
                             if let selectedVoice = viewModel.selectedVoice {
-                                ConversationsView(voiceOption: selectedVoice)
+                                ConversationsPage(voiceOption: selectedVoice)
                             } else {
                                 EmptyView()
                             }
@@ -157,6 +157,7 @@ struct GreetingsView: View {
 }
 
 struct VoiceButtonView: View {
+    let index: Int
     let voice: VoiceOption
     @Binding var selectedVoice: VoiceOption?
     var onSelect: () -> Void
@@ -192,11 +193,11 @@ struct VoiceButtonView: View {
     }
     
     private func borderColor() -> Color {
-        return voice.voiceId % 2 == 1 ? Color.borderPink : Color.borderOrange
+        return index % 2 == 0 ? Color.borderPink : Color.borderOrange
     }
     
     private func bgColor() -> Color {
-        return voice.voiceId % 2 == 1 ? Color.bgPink : Color.bgOrange
+        return index % 2 == 0 ? Color.bgPink : Color.bgOrange
     }
     
     private func circleImage(_ isFillCircle: Bool) -> String {
@@ -205,5 +206,5 @@ struct VoiceButtonView: View {
 }
 
 #Preview {
-    GreetingsView()
+    GreetingsPage()
 }

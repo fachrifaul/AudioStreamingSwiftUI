@@ -19,7 +19,7 @@ struct AudioStreamingSwiftUIApp: App {
     
     var body: some Scene {
         WindowGroup {
-            GreetingsView()
+            GreetingsPage()
         }
     }
 }

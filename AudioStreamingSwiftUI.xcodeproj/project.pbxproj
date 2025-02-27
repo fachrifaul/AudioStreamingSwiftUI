@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A29C2B822D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2B812D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift */; };
-		A29C2B842D6F0FCD001B9E03 /* GreetingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2B832D6F0FCD001B9E03 /* GreetingsView.swift */; };
+		A29C2B842D6F0FCD001B9E03 /* GreetingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2B832D6F0FCD001B9E03 /* GreetingsPage.swift */; };
 		A29C2B862D6F0FCE001B9E03 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A29C2B852D6F0FCE001B9E03 /* Assets.xcassets */; };
 		A29C2B892D6F0FCE001B9E03 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A29C2B882D6F0FCE001B9E03 /* Preview Assets.xcassets */; };
 		A29C2B932D6F0FCE001B9E03 /* ConversationsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2B922D6F0FCE001B9E03 /* ConversationsViewTests.swift */; };
@@ -18,7 +18,7 @@
 		A29C2BB22D6F1690001B9E03 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A29C2BB12D6F1690001B9E03 /* SDWebImageSwiftUI */; };
 		A29C2BB52D6F1BE3001B9E03 /* SDWebImageSVGCoder in Frameworks */ = {isa = PBXBuildFile; productRef = A29C2BB42D6F1BE3001B9E03 /* SDWebImageSVGCoder */; };
 		A29C2BB72D6F22CF001B9E03 /* ColorConstant.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BB62D6F22CF001B9E03 /* ColorConstant.swift */; };
-		A29C2BBB2D6F3023001B9E03 /* ConversationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BBA2D6F3023001B9E03 /* ConversationsView.swift */; };
+		A29C2BBB2D6F3023001B9E03 /* ConversationsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BBA2D6F3023001B9E03 /* ConversationsPage.swift */; };
 		A29C2BBF2D6F3A46001B9E03 /* MockURLSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BBE2D6F3A46001B9E03 /* MockURLSession.swift */; };
 		A29C2BC12D6F3AB9001B9E03 /* URLSessionProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BC02D6F3AB9001B9E03 /* URLSessionProtocol.swift */; };
 		A29C2BC52D6F3D0C001B9E03 /* VoiceOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BC42D6F3D0C001B9E03 /* VoiceOption.swift */; };
@@ -49,7 +49,7 @@
 /* Begin PBXFileReference section */
 		A29C2B7E2D6F0FCD001B9E03 /* AudioStreamingSwiftUI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioStreamingSwiftUI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A29C2B812D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamingSwiftUIApp.swift; sourceTree = "<group>"; };
-		A29C2B832D6F0FCD001B9E03 /* GreetingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingsView.swift; sourceTree = "<group>"; };
+		A29C2B832D6F0FCD001B9E03 /* GreetingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingsPage.swift; sourceTree = "<group>"; };
 		A29C2B852D6F0FCE001B9E03 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A29C2B882D6F0FCE001B9E03 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A29C2B8E2D6F0FCE001B9E03 /* AudioStreamingSwiftUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioStreamingSwiftUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,7 +58,7 @@
 		A29C2B9C2D6F0FCE001B9E03 /* AudioStreamingSwiftUIUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamingSwiftUIUITests.swift; sourceTree = "<group>"; };
 		A29C2B9E2D6F0FCE001B9E03 /* AudioStreamingSwiftUIUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamingSwiftUIUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		A29C2BB62D6F22CF001B9E03 /* ColorConstant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorConstant.swift; sourceTree = "<group>"; };
-		A29C2BBA2D6F3023001B9E03 /* ConversationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsView.swift; sourceTree = "<group>"; };
+		A29C2BBA2D6F3023001B9E03 /* ConversationsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationsPage.swift; sourceTree = "<group>"; };
 		A29C2BBE2D6F3A46001B9E03 /* MockURLSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLSession.swift; sourceTree = "<group>"; };
 		A29C2BC02D6F3AB9001B9E03 /* URLSessionProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSessionProtocol.swift; sourceTree = "<group>"; };
 		A29C2BC42D6F3D0C001B9E03 /* VoiceOption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOption.swift; sourceTree = "<group>"; };
@@ -120,12 +120,12 @@
 		A29C2B802D6F0FCD001B9E03 /* AudioStreamingSwiftUI */ = {
 			isa = PBXGroup;
 			children = (
-				A29C2B812D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift */,
 				A29C2B852D6F0FCE001B9E03 /* Assets.xcassets */,
+				A29C2B812D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift */,
 				A29C2BC32D6F3BEB001B9E03 /* Core */,
 				A2A945752D7036FB00EE3DDA /* Network */,
+				A29C2BC22D6F3BE3001B9E03 /* Page */,
 				A29C2B872D6F0FCE001B9E03 /* Preview Content */,
-				A29C2BC22D6F3BE3001B9E03 /* Screen */,
 			);
 			path = AudioStreamingSwiftUI;
 			sourceTree = "<group>";
@@ -157,13 +157,13 @@
 			path = AudioStreamingSwiftUIUITests;
 			sourceTree = "<group>";
 		};
-		A29C2BC22D6F3BE3001B9E03 /* Screen */ = {
+		A29C2BC22D6F3BE3001B9E03 /* Page */ = {
 			isa = PBXGroup;
 			children = (
-				A29C2BBA2D6F3023001B9E03 /* ConversationsView.swift */,
-				A29C2B832D6F0FCD001B9E03 /* GreetingsView.swift */,
+				A29C2BBA2D6F3023001B9E03 /* ConversationsPage.swift */,
+				A29C2B832D6F0FCD001B9E03 /* GreetingsPage.swift */,
 			);
-			path = Screen;
+			path = Page;
 			sourceTree = "<group>";
 		};
 		A29C2BC32D6F3BEB001B9E03 /* Core */ = {
@@ -353,13 +353,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				A29C2BC12D6F3AB9001B9E03 /* URLSessionProtocol.swift in Sources */,
-				A29C2B842D6F0FCD001B9E03 /* GreetingsView.swift in Sources */,
+				A29C2B842D6F0FCD001B9E03 /* GreetingsPage.swift in Sources */,
 				A29C2B822D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift in Sources */,
 				A29C2BC52D6F3D0C001B9E03 /* VoiceOption.swift in Sources */,
 				A29C2BB72D6F22CF001B9E03 /* ColorConstant.swift in Sources */,
 				A29C2BC72D6F43E1001B9E03 /* AudioPlayerProtocol.swift in Sources */,
 				A2A945782D70372300EE3DDA /* API.swift in Sources */,
-				A29C2BBB2D6F3023001B9E03 /* ConversationsView.swift in Sources */,
+				A29C2BBB2D6F3023001B9E03 /* ConversationsPage.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
