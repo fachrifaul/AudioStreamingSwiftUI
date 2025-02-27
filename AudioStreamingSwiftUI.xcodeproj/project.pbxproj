@@ -196,18 +196,10 @@
 		A2A945752D7036FB00EE3DDA /* Network */ = {
 			isa = PBXGroup;
 			children = (
+				A2A945772D70372300EE3DDA /* API.swift */,
 				A29C2BCD2D6F47A1001B9E03 /* Model */,
-				A2A945762D70370600EE3DDA /* Service */,
 			);
 			path = Network;
-			sourceTree = "<group>";
-		};
-		A2A945762D70370600EE3DDA /* Service */ = {
-			isa = PBXGroup;
-			children = (
-				A2A945772D70372300EE3DDA /* API.swift */,
-			);
-			path = Service;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
