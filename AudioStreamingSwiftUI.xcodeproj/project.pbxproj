@@ -25,6 +25,8 @@
 		A29C2BC72D6F43E1001B9E03 /* AudioPlayerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BC62D6F43E1001B9E03 /* AudioPlayerProtocol.swift */; };
 		A29C2BC92D6F45CD001B9E03 /* MockAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BC82D6F45CD001B9E03 /* MockAudioPlayer.swift */; };
 		A29C2BCB2D6F464E001B9E03 /* GreetingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A29C2BCA2D6F464E001B9E03 /* GreetingsViewModelTests.swift */; };
+		A2A945742D70347400EE3DDA /* AudioStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = A2A945732D70347400EE3DDA /* AudioStreaming */; };
+		A2A945782D70372300EE3DDA /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A945772D70372300EE3DDA /* API.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +65,7 @@
 		A29C2BC62D6F43E1001B9E03 /* AudioPlayerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerProtocol.swift; sourceTree = "<group>"; };
 		A29C2BC82D6F45CD001B9E03 /* MockAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAudioPlayer.swift; sourceTree = "<group>"; };
 		A29C2BCA2D6F464E001B9E03 /* GreetingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreetingsViewModelTests.swift; sourceTree = "<group>"; };
+		A2A945772D70372300EE3DDA /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +75,7 @@
 			files = (
 				A29C2BB52D6F1BE3001B9E03 /* SDWebImageSVGCoder in Frameworks */,
 				A29C2BB22D6F1690001B9E03 /* SDWebImageSwiftUI in Frameworks */,
+				A2A945742D70347400EE3DDA /* AudioStreaming in Frameworks */,
 				A29C2BAD2D6F1448001B9E03 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -119,7 +123,7 @@
 				A29C2B812D6F0FCD001B9E03 /* AudioStreamingSwiftUIApp.swift */,
 				A29C2B852D6F0FCE001B9E03 /* Assets.xcassets */,
 				A29C2BC32D6F3BEB001B9E03 /* Core */,
-				A29C2BCD2D6F47A1001B9E03 /* Model */,
+				A2A945752D7036FB00EE3DDA /* Network */,
 				A29C2B872D6F0FCE001B9E03 /* Preview Content */,
 				A29C2BC22D6F3BE3001B9E03 /* Screen */,
 			);
@@ -189,6 +193,23 @@
 			path = Model;
 			sourceTree = "<group>";
 		};
+		A2A945752D7036FB00EE3DDA /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				A29C2BCD2D6F47A1001B9E03 /* Model */,
+				A2A945762D70370600EE3DDA /* Service */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		A2A945762D70370600EE3DDA /* Service */ = {
+			isa = PBXGroup;
+			children = (
+				A2A945772D70372300EE3DDA /* API.swift */,
+			);
+			path = Service;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -209,6 +230,7 @@
 				A29C2BAC2D6F1448001B9E03 /* Lottie */,
 				A29C2BB12D6F1690001B9E03 /* SDWebImageSwiftUI */,
 				A29C2BB42D6F1BE3001B9E03 /* SDWebImageSVGCoder */,
+				A2A945732D70347400EE3DDA /* AudioStreaming */,
 			);
 			productName = AudioStreamingSwiftUI;
 			productReference = A29C2B7E2D6F0FCD001B9E03 /* AudioStreamingSwiftUI.app */;
@@ -286,6 +308,7 @@
 				A29C2BAB2D6F1448001B9E03 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 				A29C2BB02D6F1690001B9E03 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
 				A29C2BB32D6F1BE3001B9E03 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */,
+				A2A945722D70347400EE3DDA /* XCRemoteSwiftPackageReference "AudioStreaming" */,
 			);
 			productRefGroup = A29C2B7F2D6F0FCD001B9E03 /* Products */;
 			projectDirPath = "";
@@ -335,6 +358,7 @@
 				A29C2BC52D6F3D0C001B9E03 /* VoiceOption.swift in Sources */,
 				A29C2BB72D6F22CF001B9E03 /* ColorConstant.swift in Sources */,
 				A29C2BC72D6F43E1001B9E03 /* AudioPlayerProtocol.swift in Sources */,
+				A2A945782D70372300EE3DDA /* API.swift in Sources */,
 				A29C2BBB2D6F3023001B9E03 /* ConversationsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -694,6 +718,14 @@
 				minimumVersion = 1.8.0;
 			};
 		};
+		A2A945722D70347400EE3DDA /* XCRemoteSwiftPackageReference "AudioStreaming" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dimitris-c/AudioStreaming.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.7;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -711,6 +743,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A29C2BB32D6F1BE3001B9E03 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */;
 			productName = SDWebImageSVGCoder;
+		};
+		A2A945732D70347400EE3DDA /* AudioStreaming */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2A945722D70347400EE3DDA /* XCRemoteSwiftPackageReference "AudioStreaming" */;
+			productName = AudioStreaming;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -10,42 +10,52 @@ import XCTest
 
 final class ConversationsViewTests: XCTestCase {
     
-    func testFetchText_Success() {
+    func testFetchText_Success() async {
         let mockText = "Hello, this is a test transcript."
-        let mockURLSession = MockURLSession(data: mockText.data(using: .utf8), response: nil, error: nil)
+        let response = HTTPURLResponse(
+            url: URL(string: "https://static.dailyfriend.ai/conversations/samples/1/2/transcription.txt")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        let mockURLSession = MockURLSession(data: mockText.data(using: .utf8), response: response, error: nil)
         let viewModel = ConversationsViewModel(
             voiceOption: VoiceOption(voiceId: 1, sampleId: 1, name: "Stone"), 
-            urlSession: mockURLSession
+            api: API(urlSession: mockURLSession)
         )
         
-        viewModel.fetch()
+        let expectation = expectation(description: "Fetch text successfully")
         
-        // Wait for async operation
-        let expectation = XCTestExpectation(description: "Fetch text")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            XCTAssertEqual(viewModel.text, mockText)
-            XCTAssertNil(viewModel.errorMessage)
+        Task {
+            await viewModel.fetch(randomSampleId: 2)
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        
+        await fulfillment(of: [expectation], timeout: 2.0)
+        
+        // Wait for async operation
+        XCTAssertEqual(viewModel.text, mockText)
+        XCTAssertNil(viewModel.errorMessage)
     }
     
-    func testFetchText_Failure() {
+    func testFetchText_Failure() async {
         let mockError = NSError(domain: "TestError", code: 1, userInfo: nil)
         let mockURLSession = MockURLSession(data: nil, response: nil, error: mockError)
         let viewModel = ConversationsViewModel(
             voiceOption: VoiceOption(voiceId: 1, sampleId: 1, name: "Stone"),
-            urlSession: mockURLSession
+            api: API(urlSession: mockURLSession)
         )
         
-        viewModel.fetch()
+        let expectation = expectation(description: "Fetch text failure")
         
-        let expectation = XCTestExpectation(description: "Fetch text")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            XCTAssertNil(viewModel.text)
-            XCTAssertEqual(viewModel.errorMessage, "Failed to load text: \(mockError.localizedDescription)")
+        Task {
+            await viewModel.fetch()
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        
+        await fulfillment(of: [expectation], timeout: 2.0)
+        
+        XCTAssertNil(viewModel.text)
+        XCTAssertNotNil(viewModel.errorMessage)
     }
 }

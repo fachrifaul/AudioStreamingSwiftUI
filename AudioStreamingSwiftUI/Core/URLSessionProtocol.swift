@@ -11,6 +11,8 @@ protocol URLSessionProtocol {
         with url: URL,
         completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void
     ) -> URLSessionDataTaskProtocol
+    
+    func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
 protocol URLSessionDataTaskProtocol {

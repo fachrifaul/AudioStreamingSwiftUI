@@ -7,8 +7,12 @@
 
 import Foundation
 
-struct VoiceOption: Identifiable {
-    let id = UUID()
+struct VoiceOption: Identifiable, Decodable {
+    enum CodingKeys: String, CodingKey {
+        case id, voiceId, sampleId, name
+    }
+    
+    var id = UUID()
     let voiceId: Int
     let sampleId: Int
     let name: String
@@ -19,9 +23,5 @@ struct VoiceOption: Identifiable {
     
     var soundUrlString: String {
         return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
-    }
-    
-    var transcriptionUrlString: String {
-        return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/transcription.text"
     }
 }

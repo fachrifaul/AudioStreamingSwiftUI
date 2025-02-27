@@ -12,38 +12,36 @@ import SwiftUI
 class ConversationsViewModel: ObservableObject {
     @Published var text: String? = nil
     @Published var errorMessage: String? = nil
-    private var urlSession: URLSessionProtocol
-    private var player: AVPlayer?
+    private var api: API
+    private var audioPlayer: AudioPlayerProtocol
     let voiceOption: VoiceOption
     
-    init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
+    init(voiceOption: VoiceOption, 
+         api: API = API(),
+         audioPlayer: AudioPlayerProtocol = AVAudioPlayer()) {
         self.voiceOption = voiceOption
-        self.urlSession = urlSession
+        self.api = api
+        self.audioPlayer = audioPlayer
     }
     
-    func fetch() {
-        urlSession.dataTask(with: URL(string: voiceOption.transcriptionUrlString)!) { data, response, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    self.errorMessage = "Failed to load text: \(error.localizedDescription)"
-                } else if let data = data, let fetchedText = String(data: data, encoding: .utf8) {
-                    self.text = fetchedText
-                    self.startAudio(url: URL(string: self.voiceOption.soundUrlString)!)
-                } else {
-                    self.errorMessage = "Failed to decode text."
-                }
-            }
-        }.resume()
+    @MainActor
+    func fetch(randomSampleId: Int = Int.random(in: 2...20)) async {
+        let result = await api.fetchTransciption(voiceId: voiceOption.voiceId, sampleId: randomSampleId)
+        switch result {
+        case .success(let text):
+            self.text = text
+            self.startAudio(urlString: self.voiceOption.soundUrlString)
+        case .failure(let error):
+            self.errorMessage = error.localizedDescription
+        }
     }
     
-    func startAudio(url: URL) {
-        player = AVPlayer(url: url)
-        player?.play()
+    func startAudio(urlString: String) {
+        audioPlayer.play(urlString: urlString)
     }
     
     func stopAudio() {
-        player?.pause()
-        player = nil
+        audioPlayer.stop()
     }
 }
 
@@ -51,7 +49,7 @@ struct ConversationsView: View {
     let voiceOption: VoiceOption
     
     init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
-        _viewModel = StateObject(wrappedValue: ConversationsViewModel(voiceOption: voiceOption, urlSession: urlSession))
+        _viewModel = StateObject(wrappedValue: ConversationsViewModel(voiceOption: voiceOption))
         self.voiceOption = voiceOption
     }
     
@@ -100,7 +98,9 @@ struct ConversationsView: View {
     }
     
     private func fetch() {
-        viewModel.fetch()
+        Task {
+            await viewModel.fetch()
+        }
     }
 }
 

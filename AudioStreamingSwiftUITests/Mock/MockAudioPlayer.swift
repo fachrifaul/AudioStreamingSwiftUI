@@ -11,6 +11,7 @@ import Foundation
 class MockAudioPlayer: AudioPlayerProtocol {
     var playedURL: String?
     var pauseCalled = false
+    var stopCalled = false
 
     func play(urlString: String) {
         playedURL = urlString
@@ -18,5 +19,8 @@ class MockAudioPlayer: AudioPlayerProtocol {
     
     func pause() {
         pauseCalled = true
+    }
+    func stop() {
+        stopCalled = true
     }
 }

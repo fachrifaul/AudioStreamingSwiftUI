@@ -27,6 +27,16 @@ class MockURLSession: URLSessionProtocol {
             completionHandler(self.data, self.response, self.error)
         }
     }
+    
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        if let error = error {
+            throw error
+        }
+        guard let data = data, let response = response else {
+            throw URLError(.badServerResponse)
+        }
+        return (data, response)
+    }
 }
 
 class MockURLSessionDataTask: URLSessionDataTaskProtocol {
