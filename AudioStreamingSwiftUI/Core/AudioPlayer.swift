@@ -13,8 +13,9 @@ import SwiftUI
 
 protocol AudioPlayerProtocol {
     func play(urlString: String)
-    func playStream(voiceId: Int,
-                    stepId: Int,token: String, onTranscription: @escaping ([AnyHashable : Any]) -> Void, onComplete: @escaping () -> Void)
+    func playStream(body: [String: Any],
+                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
+                    onComplete: @escaping () -> Void) async
     func pause()
     func stop()
 }
@@ -35,8 +36,9 @@ class AVAudioPlayer: AudioPlayerProtocol {
             }
         }
     }
-    func playStream(voiceId: Int,
-                    stepId: Int, token: String, onTranscription: @escaping ([AnyHashable : Any]) -> Void, onComplete: @escaping () -> Void) {}
+    func playStream(body: [String: Any],
+                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
+                    onComplete: @escaping () -> Void) { }
     
     func pause() {
         player?.pause()
@@ -58,8 +60,9 @@ class AudioPlayerStreaming: AudioPlayerProtocol {
         player?.play(url: url)
     }
     
-    func playStream(voiceId: Int,
-                    stepId: Int, token: String, onTranscription: @escaping ([AnyHashable : Any]) -> Void, onComplete: @escaping () -> Void) {}
+    func playStream(body: [String: Any],
+                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
+                    onComplete: @escaping () -> Void) { }
     
     func pause() {
         player?.pause()
@@ -71,14 +74,23 @@ class AudioPlayerStreaming: AudioPlayerProtocol {
 }
 
 class AudioPlayerQueue: AudioPlayerProtocol {
+    private var api: API
+    
     private var audioQueue: AudioQueueRef?
     private var audioFormat = AudioStreamBasicDescription()
     private var buffers: [AudioQueueBufferRef?] = Array(repeating: nil, count: 3)
     private var audioData: Data?
     private var dataOffset: Int = 0
     private var isPaused = false
+    private var activeBufferCount = 0  // Track active buffers
+    private var onCompleteCallback: (() -> Void)?
     
-    init(sampleRate: Double = 16000, channels: UInt32 = 1) {
+    init(
+        api: API,
+        sampleRate: Double = 16000,
+        channels: UInt32 = 1
+    ) {
+        self.api = api
         // Set up format
         audioFormat.mSampleRate = sampleRate
         audioFormat.mFormatID = kAudioFormatLinearPCM
@@ -88,19 +100,10 @@ class AudioPlayerQueue: AudioPlayerProtocol {
         audioFormat.mBytesPerFrame = 2 * channels
         audioFormat.mChannelsPerFrame = channels
         audioFormat.mBitsPerChannel = 16
-        
-        // Create Audio Queue
-        let status = AudioQueueNewOutput(&audioFormat, audioQueueCallback, Unmanaged.passUnretained(self).toOpaque(), nil, nil, 0, &audioQueue)
-        
-        if status != noErr {
-            print("AudioQueueNewOutput failed with status: \(status)")
-            audioQueue = nil
-        }
     }
     
     func play(urlString: String) {
-        guard let url = URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech") else {
-//        guard let url = URL(string: urlString) else {
+        guard let url = URL(string: urlString) else {
             print("Invalid URL")
             return
         }
@@ -111,7 +114,9 @@ class AudioPlayerQueue: AudioPlayerProtocol {
         Task {
             do {
                 let (data, _) = try await URLSession.shared.data(for: URLRequest(url: url))
-                await audioStart(data: data)
+                await initializeAudioQueue()
+                print("Downloaded audio data size: \(data.count) bytes")
+                await processAudioData(data)
             } catch {
                 print("Failed to load data: \(error.localizedDescription)")
             }
@@ -119,48 +124,46 @@ class AudioPlayerQueue: AudioPlayerProtocol {
     }
     
     func playStream(
-        voiceId: Int,
-        stepId: Int,
-        token: String,
-        onTranscription: @escaping ([AnyHashable : Any]) -> Void,
+        body: [String: Any],
+        onTranscription: @escaping ([AnyHashable: Any]) -> Void,
         onComplete: @escaping () -> Void
-    ) {
+    ) async {
+        self.onCompleteCallback = onComplete
+        
         Task {
             do {
-                var request = URLRequest(url: URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!)
+                let token = try await api.getValidJWTToken()
+                var request = URLRequest(url: api.speechEndpoint)
                 request.httpMethod = "POST"
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-                let body: [String: Any] = [
-                    "voice_id": voiceId,
-                    "step_id": stepId,
-                    "audio_format": "pcm"
-                ]
-                request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
+                request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
                 
                 let (stream, response) = try await URLSession.shared.bytes(for: request)
+                
                 if let headers = response as? HTTPURLResponse {
                     onTranscription(headers.allHeaderFields)
                 }
+                
+                // Initialize the audio queue
+                await initializeAudioQueue()
                 
                 var buffer = Data()
                 
                 for try await byte in stream {
                     buffer.append(byte)
                     
-                    // Process in chunks of 4096 bytes
+                    // Process in chunks
                     if buffer.count >= 512 {
-                        let chunk = buffer.prefix(512) // Extract chunk
-                        buffer.removeFirst(512) // Remove from buffer
-                        await processAudioChunk(chunk)
+                        let chunk = buffer.prefix(512)
+                        buffer.removeFirst(512)
+                        await processAudioData(chunk)
                     }
                 }
                 
-                // Process any remaining data
+                // Process remaining data
                 if !buffer.isEmpty {
-                    await processAudioChunk(buffer)
-                    //onComplete()
+                    await processAudioData(buffer)
                 }
                 
             } catch {
@@ -170,32 +173,41 @@ class AudioPlayerQueue: AudioPlayerProtocol {
     }
     
     @MainActor
-    private func audioStart(data: Data) {
-        self.audioData = data
-        self.dataOffset = 0
-        self.isPaused = false
-        
-        guard let queue = self.audioQueue else {
-            print("Error: AudioQueue is nil")
-            return
-        }
-        
-        // Allocate and enqueue buffers
-        for i in 0..<self.buffers.count {
-            let status = AudioQueueAllocateBuffer(queue, 512, &self.buffers[i])
-            if status != noErr {
-                print("AudioQueueAllocateBuffer failed for buffer \(i) with status: \(status)")
-            } else {
-                self.enqueueBuffer(self.buffers[i]!)
+    private func initializeAudioQueue() {
+        let callback: AudioQueueOutputCallback = { userData, queue, buffer in
+            let audioPlayer = Unmanaged<AudioPlayerQueue>.fromOpaque(userData!).takeUnretainedValue()
+            
+            audioPlayer.activeBufferCount -= 1
+            print("Buffer finished playing. Active buffers: \(audioPlayer.activeBufferCount)")
+            
+            if audioPlayer.activeBufferCount == 0 {
+                print("🔊 Audio queue finished playing all buffers.")
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    audioPlayer.onCompleteCallback?()
+                }
             }
         }
         
-        // Start playback
-        AudioQueueStart(queue, nil)
+        let userData = Unmanaged.passUnretained(self).toOpaque()
+        let status = AudioQueueNewOutput(
+            &audioFormat,
+            callback,
+            userData,
+            nil,
+            nil,
+            0,
+            &audioQueue
+        )
+        
+        if status != noErr {
+            print("Failed to create audio queue: \(status)")
+            return
+        }
     }
     
     @MainActor
-    private func processAudioChunk(_ chunk: Data) {
+    private func processAudioData(_ chunk: Data) {
         guard let queue = audioQueue else { return }
         
         var buffer: AudioQueueBufferRef?
@@ -207,14 +219,18 @@ class AudioPlayerQueue: AudioPlayerProtocol {
             chunk.copyBytes(to: buffer.pointee.mAudioData.assumingMemoryBound(to: UInt8.self), count: chunk.count)
             
             let status = AudioQueueEnqueueBuffer(queue, buffer, 0, nil)
-            if status != noErr {
+            if status == noErr {
+                activeBufferCount += 1  // Increase buffer count
+            } else {
                 print("AudioQueueEnqueueBuffer failed with status: \(status)")
             }
         }
         
-        AudioQueueStart(queue, nil)
+        let startStatus = AudioQueueStart(queue, nil)
+        if startStatus != noErr {
+            print("AudioQueueStart failed with status: \(startStatus)")
+        }
     }
-    
     
     func pause() {
         if let queue = audioQueue, !isPaused {
@@ -232,43 +248,4 @@ class AudioPlayerQueue: AudioPlayerProtocol {
             dataOffset = 0
         }
     }
-    
-    private func enqueueBuffer(_ buffer: AudioQueueBufferRef) {
-        guard let audioData = audioData else { return }
-        
-        let bytesToCopy = min(audioData.count - dataOffset, Int(buffer.pointee.mAudioDataBytesCapacity))
-        
-        if bytesToCopy > 0 {
-            let audioPointer = buffer.pointee.mAudioData.assumingMemoryBound(to: UInt8.self)
-            audioData.copyBytes(to: audioPointer, from: dataOffset..<(dataOffset + bytesToCopy))
-            buffer.pointee.mAudioDataByteSize = UInt32(bytesToCopy)
-            dataOffset += bytesToCopy
-            
-            AudioQueueEnqueueBuffer(audioQueue!, buffer, 0, nil)
-        } else {
-            // Stop when no more data
-            stop()
-        }
-    }
-    
-    private let audioQueueCallback: AudioQueueOutputCallback = { userData, queue, buffer in
-        let player = Unmanaged<AudioPlayerQueue>.fromOpaque(userData!).takeUnretainedValue()
-        player.enqueueBuffer(buffer)
-    }
-    
-//    func audioQueueStopped
-//    private let audioQueueStopped: AudioQueueOutputCallback = { userData, audioQueue, propertyID in
-//        if propertyID == kAudioQueueProperty_IsRunning {
-//            var isRunning: UInt32 = 0
-//            var size = UInt32(MemoryLayout<UInt32>.size)
-//            AudioQueueGetProperty(audioQueue, kAudioQueueProperty_IsRunning, &isRunning, &size)
-//            
-//            if isRunning == 0 {
-//                print("🔊 Audio queue finished playing.")
-//                DispatchQueue.main.async {
-//                    //self.fetchNextAudio() // Start the next step
-//                }
-//            }
-//        }
-//    }
 }

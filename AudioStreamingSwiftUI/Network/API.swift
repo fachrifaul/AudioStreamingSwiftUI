@@ -19,7 +19,7 @@ import Foundation
 class API {
     private let authEndpoint = URL(string: "https://api-dev.asah.dev/users/verify")!
     private let voicesEndpoint = URL(string: "https://static.dailyfriend.ai/api/greetings")!
-    private let speechEndpoint = URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!
+    let speechEndpoint = URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!
     
     static func soundUrlString(voiceId: Int, sampleId: Int) ->  String {
         return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
@@ -135,7 +135,7 @@ class API {
     }
     
     /// Fetches a new JWT token from the authentication endpoint
-    private func fetchJWTToken() async throws -> String {
+    func fetchJWTToken() async throws -> String {
         var request = URLRequest(url: authEndpoint)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")

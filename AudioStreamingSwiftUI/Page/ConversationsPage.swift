@@ -18,18 +18,23 @@ class ConversationsViewModel: ObservableObject {
     
     init(voiceOption: VoiceOption, 
          api: API = API(),
-         audioPlayer: AudioPlayerProtocol = AudioPlayerQueue()) {
+         audioPlayer: AudioPlayerProtocol? = nil) {
         self.voiceOption = voiceOption
         self.api = api
-        self.audioPlayer = audioPlayer
+        self.audioPlayer = audioPlayer ?? AudioPlayerQueue(api: api)
     }
     
     @MainActor
     func fetch(stepId: Int = 1) async {
+//        startAudio(urlString: "https://file-examples.com/storage/fe7502810367c61059aaa19/2017/11/file_example_WAV_1MG.wav")
+//        return
         do {
-            let token = try await api.getValidJWTToken()
-            
-            audioPlayer.playStream(voiceId: voiceOption.voiceId, stepId: 1, token: token, onTranscription: { headers in
+            let body: [String: Any] = [
+                "voice_id": voiceOption.voiceId,
+                "step_id": stepId,
+                "audio_format": "pcm"
+            ]
+            await audioPlayer.playStream(body: body, onTranscription: { headers in
                 if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
                     DispatchQueue.main.async { [weak self] in
                         self?.text = text
