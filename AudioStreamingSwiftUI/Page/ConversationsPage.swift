@@ -18,21 +18,34 @@ class ConversationsViewModel: ObservableObject {
     
     init(voiceOption: VoiceOption, 
          api: API = API(),
-         audioPlayer: AudioPlayerProtocol = AVAudioPlayer()) {
+         audioPlayer: AudioPlayerProtocol = AudioPlayerQueue()) {
         self.voiceOption = voiceOption
         self.api = api
         self.audioPlayer = audioPlayer
     }
     
     @MainActor
-    func fetch(randomSampleId: Int = Int.random(in: 2...20)) async {
-        let result = await api.fetchTransciption(voiceId: voiceOption.voiceId, sampleId: randomSampleId)
-        switch result {
-        case .success(let text):
-            self.text = text
-            self.startAudio(urlString: API.soundUrlString(voiceId: voiceOption.voiceId, sampleId: randomSampleId))
-        case .failure(let error):
-            self.errorMessage = error.localizedDescription
+    func fetch(stepId: Int = 1) async {
+        do {
+            let token = try await api.getValidJWTToken()
+            
+            audioPlayer.playStream(voiceId: voiceOption.voiceId, stepId: 1, token: token, onTranscription: { headers in
+                if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.text = text
+                    }
+                }
+            }, onComplete: {
+                if (stepId <= 3) {
+                    Task {
+                        await self.fetch(stepId: stepId + 1)
+                    }
+                }
+            })
+        } catch {
+            DispatchQueue.main.async { [weak self] in
+                self?.errorMessage = "error"
+            }
         }
     }
     

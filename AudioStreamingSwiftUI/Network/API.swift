@@ -17,8 +17,9 @@ import Foundation
 import Foundation
 
 class API {
-    private let authEndpoint = URL(string: "https://static.dailyfriend.ai/api/auth")!
+    private let authEndpoint = URL(string: "https://api-dev.asah.dev/users/verify")!
     private let voicesEndpoint = URL(string: "https://static.dailyfriend.ai/api/greetings")!
+    private let speechEndpoint = URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!
     
     static func soundUrlString(voiceId: Int, sampleId: Int) ->  String {
         return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
@@ -52,7 +53,7 @@ class API {
     
     func fetchTransciption(voiceId: Int, sampleId: Int) async -> Result<String, BaseError> {
         do {
-//            let token = try await getValidJWTToken()
+            let token = try await getValidJWTToken()
             let urlString = "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/transcription.txt"
             guard let url = URL(string: urlString) else {
                 return .failure(.errorUrl)
@@ -76,8 +77,57 @@ class API {
         }
     }
     
+    func fetchSpeech(
+        voiceId: Int,
+        onTranscription: @escaping ([AnyHashable : Any]) -> Void
+    ) {
+        Task {
+            do {
+                let token = try await getValidJWTToken()
+                var request = URLRequest(url: speechEndpoint)
+                request.httpMethod = "POST"
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+                let body: [String: Any] = [
+                    "voice_id": voiceId,
+                    "step_id": 1,
+                    "audio_format": "pcm"
+                ]
+                request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
+
+                let (stream, response) = try await URLSession.shared.bytes(for: request)
+                
+                if let headers = response as? HTTPURLResponse {
+                    onTranscription(headers.allHeaderFields)
+                }
+                
+                var buffer = Data()
+                
+                for try await byte in stream {
+                    buffer.append(byte)
+                    
+                    // Process in chunks of 4096 bytes
+                    if buffer.count >= 4096 {
+                        let chunk = buffer.prefix(4096) // Extract chunk
+                        buffer.removeFirst(4096) // Remove from buffer
+                        //await processAudioChunk(chunk)
+                    }
+                }
+                
+                // Process any remaining data
+                if !buffer.isEmpty {
+                    //await processAudioChunk(buffer)
+                }
+                
+            } catch {
+                print("Streaming failed: \(error.localizedDescription)")
+            }
+        }
+    }
+    
     /// Ensures a valid JWT token is available, refreshing if needed
-    private func getValidJWTToken() async throws -> String {
+    func getValidJWTToken() async throws -> String {
         if let token = getJWTToken() {
             return token
         }
@@ -89,9 +139,7 @@ class API {
         var request = URLRequest(url: authEndpoint)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        let body = ["username": "your_username", "password": "your_password"] // Change based on API
-        request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+        request.addValue("Bearer ANONYMOUS\(UUID())", forHTTPHeaderField: "Authorization")
         
         let (data, response) = try await urlSession.data(for: request)
         
@@ -100,7 +148,7 @@ class API {
         }
         
         let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
-        guard let token = json?["token"] as? String else {
+        guard let token = json?["id_token"] as? String else {
             throw BaseError.missingToken
         }
         

@@ -28,7 +28,7 @@ class GreetingsViewModel: ObservableObject {
     
     func fetchVoices() {
         Task {
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+//            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
             let voices = [
                 VoiceOption(voiceId: 1, sampleId: 1, name: "Meadow"),
                 VoiceOption(voiceId: 2, sampleId: 1, name: "Cypress"),
@@ -55,6 +55,9 @@ class GreetingsViewModel: ObservableObject {
     }
     
     func selectVoice(_ voice: VoiceOption) {
+        if let _ = selectedVoice {
+            audioPlayer.pause()
+        }
         selectedVoice = voice
         playSound(urlString: voice.soundUrlString)
     }
@@ -63,8 +66,8 @@ class GreetingsViewModel: ObservableObject {
         audioPlayer.play(urlString: urlString)
     }
     
-    func pauseAudio() {
-        audioPlayer.pause()
+    func stopAudio() {
+        audioPlayer.stop()
     }
 }
 
@@ -150,7 +153,7 @@ struct GreetingsPage: View {
                 viewModel.fetchVoices()
             }
             .onDisappear {
-                viewModel.pauseAudio()
+                viewModel.stopAudio()
             }
         }
     }
