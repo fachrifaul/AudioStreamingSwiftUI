@@ -16,7 +16,7 @@ import Foundation
 
 import Foundation
 
-class API {
+actor API {
     private let authEndpoint = URL(string: "https://api-dev.asah.dev/users/verify")!
     private let voicesEndpoint = URL(string: "https://static.dailyfriend.ai/api/greetings")!
     let speechEndpoint = URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!
@@ -25,7 +25,7 @@ class API {
         return "https://static.dailyfriend.ai/conversations/samples/\(voiceId)/\(sampleId)/audio.mp3"
     }
     
-    private var urlSession: URLSessionProtocol
+    private nonisolated(unsafe) var urlSession: URLSessionProtocol
     
     init(urlSession: URLSessionProtocol = URLSession.shared) {
         self.urlSession = urlSession
@@ -33,10 +33,10 @@ class API {
     
     func fetchGreetings() async -> Result<[VoiceOption], BaseError> {
         do {
-//            let token = try await getValidJWTToken()
+            //            let token = try await getValidJWTToken()
             
             var request = URLRequest(url: voicesEndpoint)
-//            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            //            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             
             let (data, response) = try await urlSession.data(for: request)
             
@@ -59,7 +59,7 @@ class API {
                 return .failure(.errorUrl)
             }
             var request = URLRequest(url: url)
-//            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            //            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             
             let (data, response) = try await urlSession.data(for: request)
             
@@ -80,49 +80,47 @@ class API {
     func fetchSpeech(
         voiceId: Int,
         onTranscription: @escaping ([AnyHashable : Any]) -> Void
-    ) {
-        Task {
-            do {
-                let token = try await getValidJWTToken()
-                var request = URLRequest(url: speechEndpoint)
-                request.httpMethod = "POST"
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-                let body: [String: Any] = [
-                    "voice_id": voiceId,
-                    "step_id": 1,
-                    "audio_format": "pcm"
-                ]
-                request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
-
-                let (stream, response) = try await URLSession.shared.bytes(for: request)
-                
-                if let headers = response as? HTTPURLResponse {
-                    onTranscription(headers.allHeaderFields)
-                }
-                
-                var buffer = Data()
-                
-                for try await byte in stream {
-                    buffer.append(byte)
-                    
-                    // Process in chunks of 4096 bytes
-                    if buffer.count >= 4096 {
-                        let chunk = buffer.prefix(4096) // Extract chunk
-                        buffer.removeFirst(4096) // Remove from buffer
-                        //await processAudioChunk(chunk)
-                    }
-                }
-                
-                // Process any remaining data
-                if !buffer.isEmpty {
-                    //await processAudioChunk(buffer)
-                }
-                
-            } catch {
-                print("Streaming failed: \(error.localizedDescription)")
+    ) async {
+        do {
+            let token = try await getValidJWTToken()
+            var request = URLRequest(url: speechEndpoint)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            let body: [String: Any] = [
+                "voice_id": voiceId,
+                "step_id": 1,
+                "audio_format": "pcm"
+            ]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
+            
+            let (stream, response) = try await URLSession.shared.bytes(for: request)
+            
+            if let headers = response as? HTTPURLResponse {
+                onTranscription(headers.allHeaderFields)
             }
+            
+            var buffer = Data()
+            
+            for try await byte in stream {
+                buffer.append(byte)
+                
+                // Process in chunks of 4096 bytes
+                if buffer.count >= 4096 {
+                    let chunk = buffer.prefix(4096) // Extract chunk
+                    buffer.removeFirst(4096) // Remove from buffer
+                    //await processAudioChunk(chunk)
+                }
+            }
+            
+            // Process any remaining data
+            if !buffer.isEmpty {
+                //await processAudioChunk(buffer)
+            }
+            
+        } catch {
+            print("Streaming failed: \(error.localizedDescription)")
         }
     }
     

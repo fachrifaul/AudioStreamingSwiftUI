@@ -12,15 +12,27 @@ import Foundation
 import SwiftUI
 
 protocol AudioPlayerProtocol {
+    var delegate: AudioPlayerDelegate? { get set }
+    
     func play(urlString: String)
-    func playStream(body: [String: Any],
-                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
-                    onComplete: @escaping () -> Void) async
+    func playStream(body: [String: Any], stepId: Int)
     func pause()
     func stop()
 }
 
+extension AudioPlayerProtocol {
+    
+    func play(urlString: String) {
+        // Default implementation (empty, making it "optional")
+    }
+    
+    func playStream(body: [String: Any], stepId: Int)  {
+        // Default implementation (empty, making it "optional")
+    }
+}
+
 class AVAudioPlayer: AudioPlayerProtocol {
+    public weak var delegate: AudioPlayerDelegate?
     private var player: AVPlayer?
     
     func play(urlString: String) {
@@ -36,9 +48,6 @@ class AVAudioPlayer: AudioPlayerProtocol {
             }
         }
     }
-    func playStream(body: [String: Any],
-                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
-                    onComplete: @escaping () -> Void) { }
     
     func pause() {
         player?.pause()
@@ -51,6 +60,8 @@ class AVAudioPlayer: AudioPlayerProtocol {
 }
 
 class AudioPlayerStreaming: AudioPlayerProtocol {
+    public weak var delegate: AudioPlayerDelegate?
+    
     private var player: AudioPlayer?
     
     func play(urlString: String) {
@@ -59,10 +70,6 @@ class AudioPlayerStreaming: AudioPlayerProtocol {
         player = AudioPlayer()
         player?.play(url: url)
     }
-    
-    func playStream(body: [String: Any],
-                    onTranscription: @escaping ([AnyHashable : Any]) -> Void,
-                    onComplete: @escaping () -> Void) { }
     
     func pause() {
         player?.pause()
@@ -73,7 +80,12 @@ class AudioPlayerStreaming: AudioPlayerProtocol {
     }
 }
 
-class AudioPlayerQueue: AudioPlayerProtocol {
+public protocol AudioPlayerDelegate: AnyObject {
+    func onTranscription(headers: ([AnyHashable : Any]))
+    func complete(stepId: Int)
+}
+
+class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
     private var api: API
     
     private var audioQueue: AudioQueueRef?
@@ -83,7 +95,10 @@ class AudioPlayerQueue: AudioPlayerProtocol {
     private var dataOffset: Int = 0
     private var isPaused = false
     private var activeBufferCount = 0  // Track active buffers
-    private var onCompleteCallback: (() -> Void)?
+    
+    public weak var delegate: AudioPlayerDelegate?
+    var stepId: Int = 0
+    
     
     init(
         api: API,
@@ -107,72 +122,94 @@ class AudioPlayerQueue: AudioPlayerProtocol {
             print("Invalid URL")
             return
         }
-        playDownload(url: url)
+//        playDownload(url: url)
     }
     
-    private func playDownload(url: URL){
-        Task {
-            do {
-                let (data, _) = try await URLSession.shared.data(for: URLRequest(url: url))
-                await initializeAudioQueue()
-                print("Downloaded audio data size: \(data.count) bytes")
-                await processAudioData(data)
-            } catch {
+    private func playDownload(url: URL)  {
+//        do {
+//            let (data, _) = try  URLSession.shared.data(for: URLRequest(url: url))
+//            initializeAudioQueue()
+//            print("Downloaded audio data size: \(data.count) bytes")
+//            processAudioData(data)
+//        } catch {
+//            print("Failed to load data: \(error.localizedDescription)")
+//        }
+        URLSession.shared.dataTask(with: url) {[weak self] data, response, error in
+            if let error = error {
                 print("Failed to load data: \(error.localizedDescription)")
+                return
             }
-        }
+            if let data = data {
+                self?.initializeAudioQueue()
+                print("Downloaded audio data size: \(data.count) bytes")
+                self?.processAudioData(data)
+            }
+        }.resume()
     }
     
-    func playStream(
-        body: [String: Any],
-        onTranscription: @escaping ([AnyHashable: Any]) -> Void,
-        onComplete: @escaping () -> Void
-    ) async {
-        self.onCompleteCallback = onComplete
-        
-        Task {
-            do {
-                let token = try await api.getValidJWTToken()
-                var request = URLRequest(url: api.speechEndpoint)
+    func playStream(body: [String: Any], stepId: Int) {
+        self.stepId = stepId
+        getValidJWTToken { [weak self] result in
+            guard let self = self else { return } // Ensure self exists
+
+            switch result {
+            case .success(let token):
+                var request = URLRequest(url: URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!)
                 request.httpMethod = "POST"
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
                 
-                let (stream, response) = try await URLSession.shared.bytes(for: request)
-                
-                if let headers = response as? HTTPURLResponse {
-                    onTranscription(headers.allHeaderFields)
+                do {
+                    request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+                } catch {
+                    return
                 }
                 
-                // Initialize the audio queue
-                await initializeAudioQueue()
                 
-                var buffer = Data()
-                
-                for try await byte in stream {
-                    buffer.append(byte)
-                    
-                    // Process in chunks
-                    if buffer.count >= 512 {
-                        let chunk = buffer.prefix(512)
-                        buffer.removeFirst(512)
-                        await processAudioData(chunk)
+                let task = URLSession.shared.dataTask(with: request) {[weak self] data, response, error in
+                    if let error = error {
+                        return
                     }
+                    
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        return
+                    }
+                    
+                    DispatchQueue.main.async {
+                        self?.delegate?.onTranscription(headers: httpResponse.allHeaderFields)
+                    }
+                    
+                    // Initialize the audio queue
+                    self?.initializeAudioQueue()
+                    
+                    if let data = data {
+                        var buffer = Data()
+                        buffer.append(data)
+                        
+                        // Process in chunks
+                        while buffer.count >= 512 {
+                            let chunk = buffer.prefix(512)
+                            buffer.removeFirst(512)
+                            print("Buffer finished playing. finish.")
+                            self?.processAudioData(chunk)
+                        }
+                        
+                        // Process remaining data
+                        if !buffer.isEmpty {
+                            self?.processAudioData(buffer)
+                        }
+                    }
+                    
+                    
                 }
+                task.resume()
                 
-                // Process remaining data
-                if !buffer.isEmpty {
-                    await processAudioData(buffer)
-                }
-                
-            } catch {
-                print("Streaming failed: \(error.localizedDescription)")
+            case .failure(let error):
+                print(error.localizedDescription)
             }
         }
     }
     
-    @MainActor
     private func initializeAudioQueue() {
         let callback: AudioQueueOutputCallback = { userData, queue, buffer in
             let audioPlayer = Unmanaged<AudioPlayerQueue>.fromOpaque(userData!).takeUnretainedValue()
@@ -184,7 +221,9 @@ class AudioPlayerQueue: AudioPlayerProtocol {
                 print("🔊 Audio queue finished playing all buffers.")
                 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    audioPlayer.onCompleteCallback?()
+                    //                audioPlayer.onCompleteCallback?()
+                    //                audioPlayer.eventContinuation?.yield(EventMessage(key: "finished", value: true))
+                    audioPlayer.delegate?.complete(stepId: audioPlayer.stepId)
                 }
             }
         }
@@ -206,7 +245,6 @@ class AudioPlayerQueue: AudioPlayerProtocol {
         }
     }
     
-    @MainActor
     private func processAudioData(_ chunk: Data) {
         guard let queue = audioQueue else { return }
         
@@ -247,5 +285,57 @@ class AudioPlayerQueue: AudioPlayerProtocol {
             audioData = nil
             dataOffset = 0
         }
+    }
+    
+    
+    func getValidJWTToken(completion: @escaping (Result<String, Error>) -> Void) {
+        if let token = getJWTToken() {
+            completion(.success(token))
+            return
+        }
+        fetchJWTToken(completion: completion)
+    }
+
+    /// Fetches a new JWT token from the authentication endpoint
+    func fetchJWTToken(completion: @escaping (Result<String, Error>) -> Void) {
+        var request = URLRequest(url: URL(string: "https://api-dev.asah.dev/users/verify")!)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer ANONYMOUS\(UUID())", forHTTPHeaderField: "Authorization")
+        
+        URLSession.shared.dataTask(with: request) {[weak self] data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                  let data = data else {
+                completion(.failure(BaseError.invalidResponse))
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let token = json["id_token"] as? String {
+                    self?.storeJWTToken(token)
+                    completion(.success(token))
+                } else {
+                    completion(.failure(BaseError.missingToken))
+                }
+            } catch {
+                completion(.failure(error))
+            }
+        }.resume()
+    }
+    
+    /// Stores JWT token securely
+    private func storeJWTToken(_ token: String) {
+        UserDefaults.standard.setValue(token, forKey: "jwt_token") // Use Keychain for production
+    }
+    
+    /// Retrieves JWT token
+    private func getJWTToken() -> String? {
+        return UserDefaults.standard.string(forKey: "jwt_token")
     }
 }

@@ -10,6 +10,7 @@ import Lottie
 import SDWebImageSwiftUI
 import SwiftUI
 
+@MainActor
 class GreetingsViewModel: ObservableObject {
     @Published var voices: [VoiceOption] = []
     @Published var selectedVoice: VoiceOption?
@@ -27,8 +28,7 @@ class GreetingsViewModel: ObservableObject {
     }
     
     func fetchVoices() {
-        Task {
-//            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             let voices = [
                 VoiceOption(voiceId: 1, sampleId: 1, name: "Meadow"),
                 VoiceOption(voiceId: 2, sampleId: 1, name: "Cypress"),
@@ -37,20 +37,19 @@ class GreetingsViewModel: ObservableObject {
                 VoiceOption(voiceId: 5, sampleId: 1, name: "Seren"),
                 VoiceOption(voiceId: 6, sampleId: 1, name: "Stone")
             ]
-            DispatchQueue.main.async {
-                self.voices = voices
-            }
+            self.voices = voices
         }
     }
     
-    @MainActor
-    func fetchGreetings() async {
-        let result = await api.fetchGreetings()
-        switch result {
-        case .success(let voices):
-            self.voices = voices
-        case .failure(let error):
-            self.errorMessage = error.localizedDescription
+    func fetchGreetings() {
+        Task {
+            let result = await api.fetchGreetings()
+            switch result {
+            case .success(let voices):
+                self.voices = voices  // No more data race error
+            case .failure(let error):
+                self.errorMessage = error.localizedDescription
+            }
         }
     }
     

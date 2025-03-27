@@ -9,7 +9,7 @@ import Foundation
 protocol URLSessionProtocol {
     func dataTask(
         with url: URL,
-        completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void
+        completionHandler: @Sendable @escaping (Data?, URLResponse?, Error?) -> Void
     ) -> URLSessionDataTaskProtocol
     
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
@@ -22,7 +22,7 @@ protocol URLSessionDataTaskProtocol {
 extension URLSession: URLSessionProtocol {
     func dataTask(
         with url: URL,
-        completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void
+        completionHandler: @Sendable @escaping (Data?, URLResponse?, Error?) -> Void
     ) -> URLSessionDataTaskProtocol {
         let task = dataTask(with: url, completionHandler: completionHandler) as URLSessionDataTask
         return task

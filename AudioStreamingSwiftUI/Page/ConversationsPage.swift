@@ -9,7 +9,8 @@ import AVFoundation
 import Lottie
 import SwiftUI
 
-class ConversationsViewModel: ObservableObject {
+@MainActor
+class ConversationsViewModel: ObservableObject, @preconcurrency AudioPlayerDelegate {
     @Published var text: String? = nil
     @Published var errorMessage: String? = nil
     private var api: API
@@ -24,33 +25,31 @@ class ConversationsViewModel: ObservableObject {
         self.audioPlayer = audioPlayer ?? AudioPlayerQueue(api: api)
     }
     
-    @MainActor
-    func fetch(stepId: Int = 1) async {
-//        startAudio(urlString: "https://file-examples.com/storage/fe7502810367c61059aaa19/2017/11/file_example_WAV_1MG.wav")
-//        return
+    func fetch(stepId: Int = 1) {
+        audioPlayer.delegate = self
+        //        startAudio(urlString: "https://file-examples.com/storage/fe7502810367c61059aaa19/2017/11/file_example_WAV_1MG.wav")
+        //        return
         do {
             let body: [String: Any] = [
                 "voice_id": voiceOption.voiceId,
                 "step_id": stepId,
                 "audio_format": "pcm"
             ]
-            await audioPlayer.playStream(body: body, onTranscription: { headers in
-                if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.text = text
-                    }
-                }
-            }, onComplete: {
-                if (stepId <= 3) {
-                    Task {
-                        await self.fetch(stepId: stepId + 1)
-                    }
-                }
-            })
+            audioPlayer.playStream(body: body, stepId: stepId)
         } catch {
-            DispatchQueue.main.async { [weak self] in
-                self?.errorMessage = "error"
-            }
+            self.errorMessage = "error"
+        }
+    }
+    
+    func onTranscription(headers: ([AnyHashable : Any])) {
+        if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
+            self.text = text
+        }
+    }
+    
+    func complete(stepId: Int) {
+        if (stepId <= 3) {
+            fetch(stepId: stepId + 1)
         }
     }
     
@@ -116,9 +115,7 @@ struct ConversationsPage: View {
     }
     
     private func fetch() {
-        Task {
-            await viewModel.fetch()
-        }
+        viewModel.fetch()
     }
 }
 
