@@ -7,57 +7,49 @@
 
 import AVFoundation
 import Lottie
-import SDWebImageSwiftUI
 import SwiftUI
 
 @MainActor
-class GreetingsViewModel: ObservableObject {
+class GreetingsState: ObservableObject {
     @Published var voices: [VoiceOption] = []
     @Published var selectedVoice: VoiceOption?
     @Published var errorMessage: String? = nil
-    
+    @Published var isLoaded: Bool = false
+}
+
+@MainActor
+class GreetingsViewModel {
+    private var state: GreetingsState
     private var audioPlayer: AudioPlayerProtocol
-    private var api: API
+    private var voicesUseCase: VoicesUseCase
     
     init(
+        state: GreetingsState,
         audioPlayer: AudioPlayerProtocol = AVAudioPlayer(),
-        api: API = API()
+        voicesUseCase: VoicesUseCase = VoicesUseCase()
     ) {
+        self.state = state
         self.audioPlayer = audioPlayer
-        self.api = api
+        self.voicesUseCase = voicesUseCase
     }
     
     func fetchVoices() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            let voices = [
-                VoiceOption(voiceId: 1, sampleId: 1, name: "Meadow"),
-                VoiceOption(voiceId: 2, sampleId: 1, name: "Cypress"),
-                VoiceOption(voiceId: 3, sampleId: 1, name: "Iris"),
-                VoiceOption(voiceId: 4, sampleId: 1, name: "Hawke"),
-                VoiceOption(voiceId: 5, sampleId: 1, name: "Seren"),
-                VoiceOption(voiceId: 6, sampleId: 1, name: "Stone")
-            ]
-            self.voices = voices
-        }
-    }
-    
-    func fetchGreetings() {
         Task {
-            let result = await api.fetchGreetings()
+            let result = await voicesUseCase.call()
             switch result {
             case .success(let voices):
-                self.voices = voices  // No more data race error
+                self.state.voices = voices
             case .failure(let error):
-                self.errorMessage = error.localizedDescription
+                self.state.errorMessage = error.localizedDescription
             }
         }
     }
     
     func selectVoice(_ voice: VoiceOption) {
-        if let _ = selectedVoice {
+        if let _ = state.selectedVoice {
             audioPlayer.pause()
         }
-        selectedVoice = voice
+        state.selectedVoice = voice
         playSound(urlString: voice.soundUrlString)
     }
     
@@ -71,7 +63,14 @@ class GreetingsViewModel: ObservableObject {
 }
 
 struct GreetingsPage: View {
-    @StateObject private var viewModel = GreetingsViewModel()
+    @StateObject private var state: GreetingsState
+    private var viewModel: GreetingsViewModel
+    
+    init(state: GreetingsState = GreetingsState()) {
+        self._state = StateObject(wrappedValue: state)
+        self.viewModel = GreetingsViewModel(state: state)
+    }
+    
     @State private var playbackMode: LottiePlaybackMode =
         .playing(.fromProgress(0, toProgress: 1, loopMode: .playOnce))
     
@@ -100,16 +99,16 @@ struct GreetingsPage: View {
                 Text("Find the voice that resonates with you")
                     .font(.subheadline)
                 
-                if let errorMessage = viewModel.errorMessage {
+                if let errorMessage = state.errorMessage {
                     Text(errorMessage)
                         .foregroundColor(.red)
                         .padding()
                     Button("Retry") {
-                        viewModel.errorMessage = nil
+                        state.errorMessage = nil
                         viewModel.fetchVoices()
                     }
                     .padding()
-                } else if !viewModel.voices.isEmpty {
+                } else if !state.voices.isEmpty {
                     LazyVGrid(
                         columns: [
                             GridItem(.flexible()),
@@ -117,8 +116,12 @@ struct GreetingsPage: View {
                         ],
                         spacing: 16
                     ) {
-                        ForEach(Array(viewModel.voices.enumerated()), id: \.element.id) { index, voice in
-                            VoiceButtonView(index: index, voice: voice, selectedVoice: $viewModel.selectedVoice) {
+                        ForEach(Array(state.voices.enumerated()), id: \.element.id) { index, voice in
+                            VoiceButtonView(
+                                index: index,
+                                voice: voice,
+                                selectedVoice: $state.selectedVoice
+                            ) {
                                 viewModel.selectVoice(voice)
                                 playbackMode = .playing(.fromProgress(0, toProgress: 1, loopMode: .playOnce))
                             }
@@ -128,7 +131,7 @@ struct GreetingsPage: View {
                     
                     NavigationLink(
                         destination: {
-                            if let selectedVoice = viewModel.selectedVoice {
+                            if let selectedVoice = state.selectedVoice {
                                 ConversationsPage(voiceOption: selectedVoice)
                             } else {
                                 EmptyView()
@@ -138,72 +141,26 @@ struct GreetingsPage: View {
                         Text("Next")
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(viewModel.selectedVoice == nil ? Color.gray.opacity(0.5) : Color.orange)
+                            .background(state.selectedVoice == nil ? Color.gray.opacity(0.5) : Color.orange)
                             .foregroundColor(.white)
                             .cornerRadius(12)
-                    }.disabled(viewModel.selectedVoice == nil)
+                    }.disabled(state.selectedVoice == nil)
                 }  else {
                     ProgressView("Loading...")
                         .padding()
                 }
             }
             .padding()
-            .onAppear {
-                viewModel.fetchVoices()
+            .task {
+                if (!state.isLoaded) {
+                    state.isLoaded = true
+                    viewModel.fetchVoices()
+                }
             }
             .onDisappear {
                 viewModel.stopAudio()
             }
         }
-    }
-}
-
-struct VoiceButtonView: View {
-    let index: Int
-    let voice: VoiceOption
-    @Binding var selectedVoice: VoiceOption?
-    var onSelect: () -> Void
-    
-    var body: some View {
-        Button(action: onSelect) {
-            VStack {
-                HStack {
-                    Text(voice.name)
-                        .font(.headline)
-                    Spacer()
-                    Image(systemName: circleImage(selectedVoice?.id == voice.id))
-                        .foregroundColor(.orange)
-                }
-                
-                WebImage(url: URL(string: voice.imageUrlString))
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 80)
-                
-            }
-            .padding()
-            .frame(maxWidth: /*@START_MENU_TOKEN@*/.infinity/*@END_MENU_TOKEN@*/)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(selectedVoice?.id == voice.id ? borderColor() : Color.clear, lineWidth: 2)
-                    .background(bgColor())
-                
-            )
-            .cornerRadius(12)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-    
-    private func borderColor() -> Color {
-        return index % 2 == 0 ? Color.borderPink : Color.borderOrange
-    }
-    
-    private func bgColor() -> Color {
-        return index % 2 == 0 ? Color.bgPink : Color.bgOrange
-    }
-    
-    private func circleImage(_ isFillCircle: Bool) -> String {
-        return isFillCircle ? "largecircle.fill.circle" : "circle"
     }
 }
 

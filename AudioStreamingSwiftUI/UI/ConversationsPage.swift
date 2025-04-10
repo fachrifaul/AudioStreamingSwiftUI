@@ -10,16 +10,24 @@ import Lottie
 import SwiftUI
 
 @MainActor
-class ConversationsViewModel: ObservableObject, @preconcurrency AudioPlayerDelegate {
+class ConversationsState: ObservableObject {
     @Published var text: String? = nil
     @Published var errorMessage: String? = nil
+    @Published var voiceOption: VoiceOption?
+}
+
+@MainActor
+class ConversationsViewModel: @preconcurrency AudioPlayerDelegate {
+    private var state: ConversationsState
     private var api: API
     private var audioPlayer: AudioPlayerProtocol
     let voiceOption: VoiceOption
     
-    init(voiceOption: VoiceOption, 
+    init(state: ConversationsState,
+         voiceOption: VoiceOption,
          api: API = API(),
          audioPlayer: AudioPlayerProtocol? = nil) {
+        self.state = state
         self.voiceOption = voiceOption
         self.api = api
         self.audioPlayer = audioPlayer ?? AudioPlayerQueue(api: api)
@@ -27,30 +35,32 @@ class ConversationsViewModel: ObservableObject, @preconcurrency AudioPlayerDeleg
     
     func fetch(stepId: Int = 1) {
         audioPlayer.delegate = self
-        //        startAudio(urlString: "https://file-examples.com/storage/fe7502810367c61059aaa19/2017/11/file_example_WAV_1MG.wav")
-        //        return
-        do {
-            let body: [String: Any] = [
+        audioPlayer.playStream(
+            body: [
                 "voice_id": voiceOption.voiceId,
                 "step_id": stepId,
                 "audio_format": "pcm"
             ]
-            audioPlayer.playStream(body: body, stepId: stepId)
-        } catch {
-            self.errorMessage = "error"
-        }
+        )
     }
     
-    func onTranscription(headers: ([AnyHashable : Any])) {
-        if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
-            self.text = text
-        }
+    func fetchAsync(stepId: Int = 1) async {
+        audioPlayer.delegate = self
+        audioPlayer.playStream2(
+            body: [
+                "voice_id": voiceOption.voiceId,
+                "step_id": stepId,
+                "audio_format": "pcm"
+            ]
+        )
     }
     
-    func complete(stepId: Int) {
-        if (stepId <= 3) {
-            fetch(stepId: stepId + 1)
-        }
+    func onTranscription(text: String) {
+        state.text = text
+    }
+    
+    func onComplete(nextStepId: Int) {
+        fetch(stepId: nextStepId)
     }
     
     func startAudio(urlString: String) {
@@ -63,14 +73,22 @@ class ConversationsViewModel: ObservableObject, @preconcurrency AudioPlayerDeleg
 }
 
 struct ConversationsPage: View {
+    @StateObject private var state: ConversationsState
+    private var viewModel: ConversationsViewModel
     let voiceOption: VoiceOption
     
-    init(voiceOption: VoiceOption, urlSession: URLSessionProtocol = URLSession.shared) {
-        _viewModel = StateObject(wrappedValue: ConversationsViewModel(voiceOption: voiceOption))
+    init(
+        state: ConversationsState = ConversationsState(),
+        voiceOption: VoiceOption,
+        urlSession: URLSessionProtocol = URLSession.shared
+    ) {
+        self._state = StateObject(wrappedValue: state)
+        self.viewModel = ConversationsViewModel(
+            state: state,
+            voiceOption: voiceOption
+        )
         self.voiceOption = voiceOption
     }
-    
-    @StateObject private var viewModel: ConversationsViewModel
     
     var body: some View {
         VStack(spacing: 20) {
@@ -87,16 +105,16 @@ struct ConversationsPage: View {
             .frame(maxWidth:.infinity, maxHeight: .infinity)
             .aspectRatio(contentMode: .fit)
             
-            if let errorMessage = viewModel.errorMessage {
+            if let errorMessage = state.errorMessage {
                 Text(errorMessage)
                     .foregroundColor(.red)
                     .padding()
                 Button("Retry") {
-                    viewModel.errorMessage = nil
+                    state.errorMessage = nil
                     fetch()
                 }
                 .padding()
-            } else if let text = viewModel.text {
+            } else if let text = state.text {
                 Text(text)
                     .font(.title2)
                     .multilineTextAlignment(.center)
@@ -109,6 +127,9 @@ struct ConversationsPage: View {
         .onAppear {
             fetch()
         }
+//        .task {
+//            await viewModel.fetchAsync()
+//        }
         .onDisappear {
             viewModel.stopAudio()
         }
@@ -122,7 +143,7 @@ struct ConversationsPage: View {
 #Preview {
     ConversationsPage(
         voiceOption: VoiceOption(
-            voiceId: 1, 
+            voiceId: 1,
             sampleId: 1,
             name: "Stone"
         )

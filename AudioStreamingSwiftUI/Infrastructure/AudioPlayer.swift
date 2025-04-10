@@ -14,8 +14,6 @@ import SwiftUI
 protocol AudioPlayerProtocol {
     var delegate: AudioPlayerDelegate? { get set }
     
-    func play(urlString: String)
-    func playStream(body: [String: Any], stepId: Int)
     func pause()
     func stop()
 }
@@ -26,26 +24,29 @@ extension AudioPlayerProtocol {
         // Default implementation (empty, making it "optional")
     }
     
-    func playStream(body: [String: Any], stepId: Int)  {
+    func playStream(body: [String: Any])  {
+        // Default implementation (empty, making it "optional")
+    }
+    
+    func playStream2(body: [String: Any])  {
         // Default implementation (empty, making it "optional")
     }
 }
 
-class AVAudioPlayer: AudioPlayerProtocol {
+@MainActor
+class AVAudioPlayer: @preconcurrency AudioPlayerProtocol {
     public weak var delegate: AudioPlayerDelegate?
     private var player: AVPlayer?
     
     func play(urlString: String) {
         guard let url = URL(string: urlString) else { return }
         
-        DispatchQueue.global(qos: .background).async {
+        Task {
             let asset = AVURLAsset(url: url)
             let playerItem = AVPlayerItem(asset: asset)
             
-            DispatchQueue.main.async {
-                self.player = AVPlayer(playerItem: playerItem)
-                self.player?.play()
-            }
+            self.player = AVPlayer(playerItem: playerItem)
+            self.player?.play()
         }
     }
     
@@ -81,8 +82,8 @@ class AudioPlayerStreaming: AudioPlayerProtocol {
 }
 
 public protocol AudioPlayerDelegate: AnyObject {
-    func onTranscription(headers: ([AnyHashable : Any]))
-    func complete(stepId: Int)
+    func onTranscription(text: String)
+    func onComplete(nextStepId: Int)
 }
 
 class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
@@ -97,7 +98,7 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
     private var activeBufferCount = 0  // Track active buffers
     
     public weak var delegate: AudioPlayerDelegate?
-    var stepId: Int = 0
+    var nextStepId: Int = 0
     
     
     init(
@@ -122,34 +123,86 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
             print("Invalid URL")
             return
         }
-//        playDownload(url: url)
+        playDownload(url: url)
     }
     
     private func playDownload(url: URL)  {
-//        do {
-//            let (data, _) = try  URLSession.shared.data(for: URLRequest(url: url))
-//            initializeAudioQueue()
-//            print("Downloaded audio data size: \(data.count) bytes")
-//            processAudioData(data)
-//        } catch {
-//            print("Failed to load data: \(error.localizedDescription)")
-//        }
-        URLSession.shared.dataTask(with: url) {[weak self] data, response, error in
-            if let error = error {
-                print("Failed to load data: \(error.localizedDescription)")
-                return
-            }
-            if let data = data {
-                self?.initializeAudioQueue()
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(for: URLRequest(url: url))
+                initializeAudioQueue()
                 print("Downloaded audio data size: \(data.count) bytes")
-                self?.processAudioData(data)
+                processAudioData(data)
+            } catch {
+                print("Failed to load data: \(error.localizedDescription)")
             }
-        }.resume()
+        }
     }
     
-    func playStream(body: [String: Any], stepId: Int) {
-        self.stepId = stepId
-        getValidJWTToken { [weak self] result in
+    func playStream2(body: [String: Any]) async {
+        do {
+            let token = try await getValidJWTToken2()
+            
+            var request = URLRequest(url: URL(string: "https://api-dev.asah.dev/conversations/onboarding/speech")!)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+            
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return
+            }
+            
+            // Process response headers
+            await MainActor.run { [weak self] in
+                let headers = httpResponse.allHeaderFields
+                
+                if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
+                    self?.delegate?.onTranscription(text: text)
+                }
+                
+                if let nextStepId = headers["x-dailyfriend-onboarding-next-step-id"] as? String {
+                    self?.nextStepId = Int(nextStepId) ?? 0
+                }
+            }
+            
+            // Initialize the audio queue
+            await MainActor.run { [weak self] in
+                self?.initializeAudioQueue()
+            }
+            
+            var buffer = Data()
+            for try await chunk in bytes {
+                buffer.append(chunk)
+                
+                // Process in 512-byte chunks
+                while buffer.count >= 512 {
+                    let chunk = buffer.prefix(512)
+                    buffer.removeFirst(512)
+                    print("Processing 512-byte chunk")
+                    
+                    await MainActor.run { [weak self] in
+                        self?.processAudioData(chunk)
+                    }
+                }
+            }
+            
+            // Process any remaining data
+            if !buffer.isEmpty {
+                await MainActor.run { [weak self] in
+                    self?.processAudioData(buffer)
+                }
+            }
+        } catch {
+            print("Network request failed: \(error)")
+        }
+    }
+
+    
+    func playStream(body: [String: Any]) {
+        fetchJWTToken { [weak self] result in
             guard let self = self else { return } // Ensure self exists
 
             switch result {
@@ -165,9 +218,9 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
                     return
                 }
                 
-                
+                let copyBody = body
                 let task = URLSession.shared.dataTask(with: request) {[weak self] data, response, error in
-                    if let error = error {
+                    if let _ = error {
                         return
                     }
                     
@@ -176,7 +229,15 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
                     }
                     
                     DispatchQueue.main.async {
-                        self?.delegate?.onTranscription(headers: httpResponse.allHeaderFields)
+                        let headers = httpResponse.allHeaderFields
+                        
+                        if let text = headers["x-dailyfriend-onboarding-current-step-transcription"] as? String {
+                            self?.delegate?.onTranscription(text: text)
+                        }
+                        
+                        if let nextStepId = headers["x-dailyfriend-onboarding-next-step-id"] as? String {
+                            self?.nextStepId = Int(nextStepId) ?? 0
+                        }
                     }
                     
                     // Initialize the audio queue
@@ -220,10 +281,10 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
             if audioPlayer.activeBufferCount == 0 {
                 print("🔊 Audio queue finished playing all buffers.")
                 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    //                audioPlayer.onCompleteCallback?()
-                    //                audioPlayer.eventContinuation?.yield(EventMessage(key: "finished", value: true))
-                    audioPlayer.delegate?.complete(stepId: audioPlayer.stepId)
+                if (audioPlayer.nextStepId > 0) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        audioPlayer.delegate?.onComplete(nextStepId: audioPlayer.nextStepId)
+                    }
                 }
             }
         }
@@ -258,7 +319,8 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
             
             let status = AudioQueueEnqueueBuffer(queue, buffer, 0, nil)
             if status == noErr {
-                activeBufferCount += 1  // Increase buffer count
+                activeBufferCount += 1
+                print("Buffer increased. Active buffers: \(activeBufferCount)")
             } else {
                 print("AudioQueueEnqueueBuffer failed with status: \(status)")
             }
@@ -287,6 +349,35 @@ class AudioPlayerQueue: AudioPlayerProtocol, @unchecked Sendable {
         }
     }
     
+    /// Ensures a valid JWT token is available, refreshing if needed
+    func getValidJWTToken2() async throws -> String {
+        if let token = getJWTToken() {
+            return token
+        }
+        return try await fetchJWTToken2()
+    }
+    
+    /// Fetches a new JWT token from the authentication endpoint
+    func fetchJWTToken2() async throws -> String {
+        var request = URLRequest(url: URL(string: "https://api-dev.asah.dev/users/verify")!)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer ANONYMOUS\(UUID())", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw BaseError.invalidResponse
+        }
+        
+        let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+        guard let token = json?["id_token"] as? String else {
+            throw BaseError.missingToken
+        }
+        
+        storeJWTToken(token)
+        return token
+    }
     
     func getValidJWTToken(completion: @escaping (Result<String, Error>) -> Void) {
         if let token = getJWTToken() {

@@ -7,15 +7,6 @@
 
 import Foundation
 
-//
-//  API.swift
-//  AudioStreamingSwiftUI
-//
-//  Created by Fachri Febrian on 27/02/2025.
-//
-
-import Foundation
-
 actor API {
     private let authEndpoint = URL(string: "https://api-dev.asah.dev/users/verify")!
     private let voicesEndpoint = URL(string: "https://static.dailyfriend.ai/api/greetings")!
